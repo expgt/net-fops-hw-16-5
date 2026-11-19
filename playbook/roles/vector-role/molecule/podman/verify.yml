@@ -1,0 +1,44 @@
+---
+# Purpose: assert that the instance really ended up in the expected state.
+# Molecule calls this playbook with `molecule verify`.
+- name: Verify Vector role
+  hosts: all
+  gather_facts: false
+  tasks:
+    - name: Check that Vector configuration file exists
+      ansible.builtin.stat:
+        path: /etc/vector/vector.yaml
+      register: vector_config
+
+    - name: Assert Vector configuration file is present
+      ansible.builtin.assert:
+        that:
+          - vector_config.stat.exists
+          - vector_config.stat.isreg
+        fail_msg: "Configuration file /etc/vector/vector.yaml was not found."
+        success_msg: "Configuration file /etc/vector/vector.yaml exists."
+
+    - name: Check Vector binary version
+      ansible.builtin.command: vector --version
+      register: vector_version_cmd
+      changed_when: false
+
+    - name: Assert Vector binary runs properly
+      ansible.builtin.assert:
+        that:
+          - vector_version_cmd.rc == 0
+          - "'vector' in vector_version_cmd.stdout"
+        fail_msg: "Vector binary failed to execute."
+        success_msg: "Vector binary is working: {{ vector_version_cmd.stdout }}"
+
+    - name: Validate Vector configuration syntax
+      ansible.builtin.command: vector validate --no-environment /etc/vector/vector.yaml
+      register: vector_validate_cmd
+      changed_when: false
+
+    - name: Assert Vector configuration is valid
+      ansible.builtin.assert:
+        that:
+          - vector_validate_cmd.rc == 0
+        fail_msg: "Vector configuration validation failed: {{ vector_validate_cmd.stderr }}"
+        success_msg: "Vector configuration is valid."
