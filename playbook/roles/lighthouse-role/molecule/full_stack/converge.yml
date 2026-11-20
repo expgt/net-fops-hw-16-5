@@ -22,12 +22,6 @@
       ansible.builtin.include_role:
         name: clickhouse
 
-    # - name: Ensure ClickHouse server is running in Docker
-    #   become: true
-    #   ansible.builtin.shell: |
-    #     pgrep -x clickhouse-server || nohup sudo -u clickhouse /usr/bin/clickhouse-server --config-file=/etc/clickhouse-server/config.xml >/var/log/clickhouse-server/stdout.log 2>&1 &
-    #   changed_when: false
-
     - name: Wait for ClickHouse HTTP port 8123
       ansible.builtin.wait_for:
         port: 8123
