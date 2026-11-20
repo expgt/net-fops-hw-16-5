@@ -90,7 +90,7 @@
 
 ![3_2](https://github.com/expgt/net-fops-hw-16-5/blob/main/16_5_3_2.png)
 
-3. Проверена работоспособность стека. Создан отдельный verify.yml, который проверяет работоспособность интеграции всех инструментов между ними.
+3. Проверена работоспособность стека. Создан отдельный [verify.yml](https://github.com/expgt/net-fops-hw-16-5/blob/main/playbook/roles/lighthouse-role/molecule/full_stack/verify.yml), который проверяет работоспособность интеграции всех инструментов между ними.
 
 ![3_3](https://github.com/expgt/net-fops-hw-16-5/blob/main/16_5_3_3.png)
 
