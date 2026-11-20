@@ -1,0 +1,31 @@
+---
+dependency:
+  name: galaxy
+driver:
+  name: docker
+platforms:
+  - name: clickhouse
+    image: docker.io/library/ubuntu:22.04
+    privileged: true
+    networks:
+      - name: full_stack_net
+    groups:
+      - clickhouse
+  - name: vector
+    image: docker.io/library/ubuntu:22.04
+    networks:
+      - name: full_stack_net
+    groups:
+      - vector
+  - name: lighthouse
+    image: docker.io/library/ubuntu:22.04
+    networks:
+      - name: full_stack_net
+    groups:
+      - lighthouse
+provisioner:
+  name: ansible
+  env:
+    ANSIBLE_ROLES_PATH: "${MOLECULE_PROJECT_DIRECTORY}/.."
+verifier:
+  name: ansible

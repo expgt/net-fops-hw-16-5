@@ -1,0 +1,45 @@
+---
+- name: Verify LightHouse role
+  hosts: all
+  gather_facts: false
+  tasks:
+    # Check that LightHouse index.html was extracted and exists
+    - name: Check LightHouse index.html file
+      ansible.builtin.stat:
+        path: /var/www/lighthouse/lighthouse-master/index.html
+      register: lighthouse_index
+
+    - name: Assert LightHouse static files exist
+      ansible.builtin.assert:
+        that:
+          - lighthouse_index.stat.exists
+          - lighthouse_index.stat.isreg
+        fail_msg: "LightHouse index.html was not found in /var/www/lighthouse/lighthouse-master/."
+        success_msg: "LightHouse static files exist."
+
+    # Check that Nginx virtual host configuration exists
+    - name: Check Nginx configuration file for LightHouse
+      ansible.builtin.stat:
+        path: /etc/nginx/conf.d/lighthouse.conf
+      register: nginx_conf
+
+    - name: Assert Nginx configuration file exists
+      ansible.builtin.assert:
+        that:
+          - nginx_conf.stat.exists
+          - nginx_conf.stat.isreg
+        fail_msg: "Nginx configuration /etc/nginx/conf.d/lighthouse.conf was not found."
+        success_msg: "Nginx configuration file exists."
+
+    # Validate Nginx configuration syntax
+    - name: Test Nginx configuration syntax
+      ansible.builtin.command: nginx -t
+      register: nginx_syntax
+      changed_when: false
+
+    - name: Assert Nginx configuration is valid
+      ansible.builtin.assert:
+        that:
+          - nginx_syntax.rc == 0
+        fail_msg: "Nginx configuration syntax check failed: {{ nginx_syntax.stderr }}"
+        success_msg: "Nginx configuration syntax is valid."

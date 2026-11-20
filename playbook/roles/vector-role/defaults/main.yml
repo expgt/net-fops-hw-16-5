@@ -2,3 +2,6 @@
 ---
 # defaults file for vector-role
 vector_version: "0.43.0"
+vector_clickhouse_host: ""
+vector_clickhouse_db: "default"
+vector_clickhouse_table: "vector_logs"

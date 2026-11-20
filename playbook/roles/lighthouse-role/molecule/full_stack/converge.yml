@@ -1,0 +1,78 @@
+---
+- name: Deploy ClickHouse
+  hosts: clickhouse
+  gather_facts: true
+  vars:
+    clickhouse_listen_host_default:
+      - "0.0.0.0"
+    clickhouse_networks_default:
+      - "0.0.0.0/0"
+    clickhouse_interserver_http: 9019
+    clickhouse_ready_retries: 1
+
+  pre_tasks:
+    - name: Install gnupg for apt_key in minimal Docker image
+      become: true
+      ansible.builtin.apt:
+        name: gnupg
+        state: present
+        update_cache: true
+  tasks:
+    - name: Apply clickhouse role
+      ansible.builtin.include_role:
+        name: clickhouse
+
+    # - name: Ensure ClickHouse server is running in Docker
+    #   become: true
+    #   ansible.builtin.shell: |
+    #     pgrep -x clickhouse-server || nohup sudo -u clickhouse /usr/bin/clickhouse-server --config-file=/etc/clickhouse-server/config.xml >/var/log/clickhouse-server/stdout.log 2>&1 &
+    #   changed_when: false
+
+    - name: Wait for ClickHouse HTTP port 8123
+      ansible.builtin.wait_for:
+        port: 8123
+        delay: 2
+        timeout: 30
+
+    - name: Create table for Vector logs in ClickHouse
+      ansible.builtin.uri:
+        url: "http://localhost:8123/"
+        method: POST
+        body: >
+          CREATE TABLE IF NOT EXISTS default.vector_logs
+          (
+            message String,
+            timestamp String
+          ) ENGINE = MergeTree() ORDER BY timestamp;
+
+- name: Deploy Vector
+  hosts: vector
+  gather_facts: true
+  vars:
+    vector_clickhouse_host: "clickhouse"
+    vector_clickhouse_db: "default"
+    vector_clickhouse_table: "vector_logs"
+  tasks:
+    - name: Apply vector role
+      ansible.builtin.include_role:
+        name: vector-role
+
+    - name: Ensure Vector is running in Docker
+      become: true
+      ansible.builtin.shell: |
+        pgrep -x vector || nohup /usr/bin/vector --config /etc/vector/vector.yaml >/var/log/vector.log 2>&1 &
+      changed_when: false
+
+- name: Deploy LightHouse
+  hosts: lighthouse
+  gather_facts: true
+  tasks:
+    - name: Apply lighthouse role
+      ansible.builtin.include_role:
+        name: lighthouse-role
+
+    - name: Ensure Nginx is running in Docker
+      become: true
+      ansible.builtin.shell: |
+        pgrep -x nginx || /usr/sbin/nginx
+      changed_when: false

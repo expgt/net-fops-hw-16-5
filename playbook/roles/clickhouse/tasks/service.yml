@@ -1,0 +1,29 @@
+---
+- name: Check if systemd is actually running
+  ansible.builtin.stat:
+    path: /run/systemd/system
+  register: systemd_running
+
+- name: >-
+    Ensure {{ clickhouse_service }}
+    is enabled: {{ clickhouse_service_enable }}
+    and state: {{ clickhouse_service_ensure }}
+  ansible.builtin.service:
+    name: "{{ clickhouse_service }}"
+    enabled: "{{ clickhouse_service_enable }}"
+    state: "{{ clickhouse_service_ensure }}"
+  become: true
+  when:
+    - systemd_running.stat.exists
+
+- name: Start clickhouse-server process in container without systemd
+  become: true
+  ansible.builtin.shell: |
+    mkdir -p /var/run/clickhouse-server /var/log/clickhouse-server
+    chown -R clickhouse:clickhouse /var/run/clickhouse-server /var/log/clickhouse-server /var/lib/clickhouse
+    if ! pgrep -x "clickhouse-server" >/dev/null; then
+      runuser -u clickhouse -- /usr/bin/clickhouse-server --config-file=/etc/clickhouse-server/config.xml --pid-file=/var/run/clickhouse-server/clickhouse-server.pid --daemon
+    fi
+  when:
+    - not systemd_running.stat.exists
+  changed_when: false

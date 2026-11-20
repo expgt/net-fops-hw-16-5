@@ -1,0 +1,73 @@
+---
+- name: Verify full stack integration
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Wait a few seconds for Vector to ship logs into ClickHouse
+      ansible.builtin.pause:
+        seconds: 5
+
+- name: Verify ClickHouse received logs from Vector
+  hosts: clickhouse
+  gather_facts: false
+  tasks:
+    - name: Query row count in default.vector_logs
+      ansible.builtin.uri:
+        url: "http://localhost:8123/?query=SELECT%20count()%20FROM%20default.vector_logs"
+        return_content: true
+      register: ch_count
+
+    - name: Assert Vector successfully delivered logs to ClickHouse
+      ansible.builtin.assert:
+        that:
+          - ch_count.status == 200
+          - (ch_count.content | trim | int) > 0
+        fail_msg: "No logs received in ClickHouse from Vector (count={{ ch_count.content | trim }})."
+        success_msg: "Integration Vector -> ClickHouse verified! Rows inserted: {{ ch_count.content | trim }}."
+
+- name: Verify Vector configuration and process
+  hosts: vector
+  gather_facts: false
+  tasks:
+    - name: Validate Vector configuration including ClickHouse sink
+      ansible.builtin.command: vector validate /etc/vector/vector.yaml
+      register: vector_val
+      changed_when: false
+
+    - name: Assert Vector config is valid
+      ansible.builtin.assert:
+        that:
+          - vector_val.rc == 0
+        fail_msg: "Vector config validation failed: {{ vector_val.stderr }}"
+
+- name: Verify LightHouse UI and network access to ClickHouse
+  hosts: lighthouse
+  gather_facts: false
+  tasks:
+    - name: Check LightHouse web interface on port 8124
+      ansible.builtin.uri:
+        url: "http://localhost:8124/"
+        return_content: true
+      register: lh_web
+
+    - name: Assert LightHouse UI is served by Nginx
+      ansible.builtin.assert:
+        that:
+          - lh_web.status == 200
+          - "'LightHouse' in lh_web.content or 'html' in lh_web.content"
+        fail_msg: "LightHouse web UI is not accessible on port 8124."
+        success_msg: "LightHouse web UI is up and running on port 8124."
+
+    - name: Verify network connectivity from LightHouse container to ClickHouse API
+      ansible.builtin.uri:
+        url: "http://clickhouse:8123/ping"
+        return_content: true
+      register: lh_to_ch
+
+    - name: Assert LightHouse host can reach ClickHouse HTTP endpoint
+      ansible.builtin.assert:
+        that:
+          - lh_to_ch.status == 200
+          - "'Ok.' in lh_to_ch.content"
+        fail_msg: "LightHouse host cannot reach ClickHouse at http://clickhouse:8123."
+        success_msg: "Network integration LightHouse -> ClickHouse verified!"

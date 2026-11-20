@@ -11,3 +11,13 @@ sinks:
       - "dummy_logs"
     encoding:
       codec: "json"
+{% if vector_clickhouse_host | default('') | length > 0 %}
+  clickhouse_output:
+    type: "clickhouse"
+    inputs:
+      - "dummy_logs"
+    endpoint: "http://{{ vector_clickhouse_host }}:8123"
+    database: "{{ vector_clickhouse_db }}"
+    table: "{{ vector_clickhouse_table }}"
+    skip_unknown_fields: true
+{% endif %}

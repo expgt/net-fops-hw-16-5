@@ -1,0 +1,57 @@
+#SPDX-License-Identifier: MIT-0
+---
+# tasks file for lighthouse-role
+- name: Create web-root directory for LightHouse
+  become: true
+  ansible.builtin.file:
+    path: "{{ lighthouse_install_dir }}"
+    state: directory
+    mode: '0755'
+  check_mode: false
+
+- name: Download LightHouse static zip archive
+  ansible.builtin.get_url:
+    url: "https://github.com/VKCOM/lighthouse/archive/refs/heads/{{ lighthouse_version }}.zip"
+    dest: "/tmp/lighthouse-{{ lighthouse_version }}.zip"
+    mode: '0644'
+  register: download_lh
+  until: download_lh is succeeded
+  retries: 3
+  delay: 5
+  check_mode: false
+
+- name: Install required packages (nginx, unzip)
+  become: true
+  ansible.builtin.package:
+    name:
+      - nginx
+      - unzip
+    state: present
+    update_cache: true
+
+- name: Unarchive LightHouse static files
+  become: true
+  ansible.builtin.unarchive:
+    src: "/tmp/lighthouse-{{ lighthouse_version }}.zip"
+    dest: "{{ lighthouse_install_dir }}"
+    remote_src: true
+    creates: "{{ lighthouse_install_dir }}/lighthouse-{{ lighthouse_version }}/index.html"
+
+- name: Deploy Nginx configuration for LightHouse
+  become: true
+  ansible.builtin.template:
+    src: templates/lighthouse.conf.j2
+    dest: "{{ lighthouse_config_dir }}/lighthouse.conf"
+    mode: '0644'
+  notify: Restart nginx service
+
+- name: Ensure Nginx is started and enabled
+  become: true
+  ansible.builtin.service:
+    name: nginx
+    state: started
+    enabled: true
+  when:
+    - not ansible_check_mode
+    - ansible_virtualization_type != "docker"
+    - ansible_virtualization_type != "podman"
